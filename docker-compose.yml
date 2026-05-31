@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: northwind-expense-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: northwind_expense
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d northwind_expense"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Project/app/backend/Dockerfile
+    container_name: northwind-expense-backend
+    env_file:
+      - .env
+    environment:
+      POSTGRES_URL: postgresql+psycopg://postgres:postgres@postgres:5432/northwind_expense
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/Project/data
+      - ./uploads:/app/Project/uploads
+      - ./raw_store:/app/Project/raw_store
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: Project/app/frontend/Dockerfile
+    container_name: northwind-expense-frontend
+    environment:
+      VITE_API_TARGET: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:

@@ -1,0 +1,14 @@
+.venv/
+.npm-cache/
+.history/
+raw_store/
+api/__pycache__/
+scripts/__pycache__/
+app/frontend/node_modules/
+app/frontend/dist/
+app/backend/__pycache__/
+app/__pycache__/
+data/*.db
+uploads/*
+!uploads/.gitkeep
+.DS_Store

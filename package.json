@@ -1,0 +1,7 @@
+{
+  "name": "northwind-logistics",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix app/frontend ci && npm --prefix app/frontend run build"
+  }
+}
