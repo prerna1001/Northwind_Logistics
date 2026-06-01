@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Northwind Architecture Flow</title>
+    <style>
+      :root {
+        --bg: #f7f2ea;
+        --panel: #fffdf9;
+        --ink: #142226;
+        --muted: #5e7075;
+        --line: rgba(20, 34, 38, 0.16);
+        --teal: #0f766e;
+        --teal-soft: #daf3ef;
+        --gold: #a7651d;
+        --sand: #f7e4c6;
+        --rose: #b5464d;
+        --rose-soft: rgba(181, 70, 77, 0.12);
+        --shadow: 0 18px 40px rgba(20, 34, 38, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(167, 101, 29, 0.15), transparent 24%),
+          radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 28%),
+          linear-gradient(180deg, #fbf8f3 0%, var(--bg) 100%);
+      }
+
+      main {
+        width: min(1480px, calc(100vw - 40px));
+        margin: 0 auto;
+        padding: 28px 0 44px;
+      }
+
+      .hero,
+      .panel {
+        background: rgba(255, 253, 249, 0.9);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 28px 30px;
+        margin-bottom: 22px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-weight: 800;
+        color: var(--gold);
+        font-size: 0.78rem;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", serif;
+      }
+
+      h1 {
+        font-size: clamp(2.3rem, 4vw, 4.2rem);
+        line-height: 0.96;
+      }
+
+      .hero p:last-child {
+        margin: 14px 0 0;
+        max-width: 78ch;
+        color: var(--muted);
+        font-size: 1.03rem;
+        line-height: 1.55;
+      }
+
+      .panel {
+        padding: 22px;
+      }
+
+      .panel + .panel {
+        margin-top: 18px;
+      }
+
+      .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .panel-header p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        max-width: 60ch;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: white;
+        font-size: 0.88rem;
+      }
+
+      .chip {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+      }
+
+      .chip-intake { background: var(--sand); }
+      .chip-core { background: var(--teal-soft); }
+      .chip-decision { background: rgba(15, 118, 110, 0.25); }
+      .chip-review { background: var(--rose-soft); }
+
+      svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .box {
+        fill: var(--panel);
+        stroke: var(--line);
+        stroke-width: 1.3;
+        rx: 22;
+        ry: 22;
+        filter: drop-shadow(0 10px 18px rgba(20, 34, 38, 0.06));
+      }
+
+      .box.intake { fill: #fff8ef; }
+      .box.core { fill: #f4fcfa; }
+      .box.decision { fill: #eef8f7; }
+      .box.review { fill: #fff7f7; }
+
+      .title {
+        font-size: 21px;
+        font-weight: 800;
+        fill: var(--ink);
+      }
+
+      .subtitle {
+        font-size: 14px;
+        fill: var(--muted);
+      }
+
+      .small {
+        font-size: 13px;
+        fill: var(--muted);
+      }
+
+      .decision-text {
+        font-size: 15px;
+        font-weight: 700;
+        fill: var(--ink);
+      }
+
+      .arrow {
+        stroke: rgba(20, 34, 38, 0.5);
+        stroke-width: 2.3;
+        fill: none;
+        marker-end: url(#arrowHead);
+      }
+
+      .dashed {
+        stroke-dasharray: 7 6;
+      }
+
+      .flow-label {
+        font-size: 13px;
+        fill: var(--muted);
+        font-weight: 700;
+      }
+
+      .footer-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .note {
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        padding: 16px 18px;
+        background: rgba(255, 255, 255, 0.86);
+      }
+
+      .note h3 {
+        font-size: 1.08rem;
+        margin-bottom: 8px;
+      }
+
+      .note p {
+        margin: 0;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+
+      @media (max-width: 1100px) {
+        .footer-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Northwind Logistics</p>
+        <h1>Expense Review Architecture Flow</h1>
+        <p>
+          This diagram shows the end-to-end path from seeded sample cases and new submissions through
+          extraction, policy retrieval, adjudication, confidence routing, reviewer override, and policy-grounded chat.
+          The decision points highlight where the system refuses weak evidence instead of overclaiming.
+        </p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Receipt Review Pipeline</h2>
+            <p>
+              The main flow separates raw artifact handling, structured extraction, routed retrieval, policy-backed
+              adjudication, and final reviewer-facing state.
+            </p>
+          </div>
+          <div class="legend">
+            <span><i class="chip chip-intake"></i> Intake / storage</span>
+            <span><i class="chip chip-core"></i> Analysis pipeline</span>
+            <span><i class="chip chip-decision"></i> Decision / routing</span>
+            <span><i class="chip chip-review"></i> Human review surface</span>
+          </div>
+        </div>
+
+        <svg viewBox="0 0 1440 930" role="img" aria-label="Architecture flow diagram">
+          <defs>
+            <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(20,34,38,0.55)"></path>
+            </marker>
+          </defs>
+
+          <rect class="box intake" x="34" y="54" width="260" height="116"></rect>
+          <text class="title" x="58" y="94">1. Submission Intake</text>
+          <text class="subtitle" x="58" y="122">Seeded sample cases or new reviewer submission</text>
+          <text class="small" x="58" y="148">Employee context + trip dates + mixed-format receipts</text>
+
+          <rect class="box intake" x="34" y="232" width="260" height="140"></rect>
+          <text class="title" x="58" y="272">2. Raw Storage Layer</text>
+          <text class="subtitle" x="58" y="300">Cloudflare R2 for receipts and policy artifacts</text>
+          <text class="small" x="58" y="326">PostgreSQL + pgvector for app state and policy embeddings</text>
+          <text class="small" x="58" y="348">Persistent across restarts</text>
+
+          <rect class="box core" x="356" y="44" width="272" height="130"></rect>
+          <text class="title" x="382" y="84">3. Receipt Extraction</text>
+          <text class="subtitle" x="382" y="112">File-type detection → text path or PaddleOCR path</text>
+          <text class="small" x="382" y="138">Normalized fields: vendor, date, totals, payment, line items</text>
+          <text class="small" x="382" y="160">Extraction confidence stored separately</text>
+
+          <polygon class="box decision" points="492,226 620,314 492,402 364,314"></polygon>
+          <text class="decision-text" x="430" y="308">Receipt-like and</text>
+          <text class="decision-text" x="424" y="332">extractable enough?</text>
+
+          <rect class="box review" x="34" y="458" width="260" height="126"></rect>
+          <text class="title" x="58" y="498">Fallback Path</text>
+          <text class="subtitle" x="58" y="526">Weak extraction or non-receipt input</text>
+          <text class="small" x="58" y="552">No grounded retrieval</text>
+          <text class="small" x="58" y="574">Route to needs_human_review</text>
+
+          <rect class="box core" x="694" y="44" width="286" height="132"></rect>
+          <text class="title" x="720" y="84">4. Categorization & Routing</text>
+          <text class="subtitle" x="720" y="112">Primary category + secondary signals</text>
+          <text class="small" x="720" y="138">meal / lodging / air travel / ground transport / conference</text>
+          <text class="small" x="720" y="160">Signal-driven supporting policies only when justified</text>
+
+          <rect class="box core" x="694" y="226" width="286" height="130"></rect>
+          <text class="title" x="720" y="266">5. Deterministic Checks</text>
+          <text class="subtitle" x="720" y="294">Caps, prohibited items, itemization, mismatch, approval</text>
+          <text class="small" x="720" y="320">Structured findings become evidence features, not final truth</text>
+
+          <rect class="box core" x="1048" y="44" width="318" height="140"></rect>
+          <text class="title" x="1074" y="84">6. Retrieval Layer</text>
+          <text class="subtitle" x="1074" y="112">Routed policy-family search over versioned chunks</text>
+          <text class="small" x="1074" y="138">Embedding similarity + keyword overlap + topic tags</text>
+          <text class="small" x="1074" y="160">Top evidence package only from active policy versions</text>
+
+          <polygon class="box decision" points="1208,246 1348,334 1208,422 1068,334"></polygon>
+          <text class="decision-text" x="1143" y="328">Strong enough</text>
+          <text class="decision-text" x="1132" y="352">policy evidence?</text>
+
+          <rect class="box review" x="1044" y="472" width="322" height="136"></rect>
+          <text class="title" x="1070" y="512">Confidence Guardrail</text>
+          <text class="subtitle" x="1070" y="540">Weak retrieval or weak extraction</text>
+          <text class="small" x="1070" y="566">Do not auto-ground or auto-approve</text>
+          <text class="small" x="1070" y="588">Prefer needs_human_review over false certainty</text>
+
+          <rect class="box decision" x="694" y="432" width="286" height="154"></rect>
+          <text class="title" x="720" y="472">7. Adjudication Layer</text>
+          <text class="subtitle" x="720" y="500">Llama-compatible reasoning over facts + rules + policy evidence</text>
+          <text class="small" x="720" y="526">Outputs: verdict, reasoning, quoted clauses, confidence, action</text>
+          <text class="small" x="720" y="548">Falls back to heuristic adjudicator if hosted model is unavailable</text>
+
+          <rect class="box review" x="694" y="658" width="286" height="172"></rect>
+          <text class="title" x="720" y="698">8. Reviewer Surface</text>
+          <text class="subtitle" x="720" y="726">Receipt cards with verdict, confidence, evidence, and overrides</text>
+          <text class="small" x="720" y="752">States: compliant / flagged / rejected / needs_human_review</text>
+          <text class="small" x="720" y="774">Override keeps original system verdict for audit trail</text>
+          <text class="small" x="720" y="796">History remains browsable by employee, date, and status</text>
+
+          <rect class="box core" x="1048" y="658" width="318" height="172"></rect>
+          <text class="title" x="1074" y="698">9. Assistant Modes</text>
+          <text class="subtitle" x="1074" y="726">Policy-grounded chat and case-grounded chat</text>
+          <text class="small" x="1074" y="752">Policy chat refuses unsupported questions instead of fabricating</text>
+          <text class="small" x="1074" y="774">Case chat combines selected submission context with policy evidence</text>
+          <text class="small" x="1074" y="796">Same retrieval discipline, different scope</text>
+
+          <path class="arrow" d="M 294 112 L 356 112"></path>
+          <path class="arrow" d="M 164 170 L 164 232"></path>
+          <path class="arrow" d="M 628 112 L 694 112"></path>
+          <path class="arrow" d="M 980 112 L 1048 112"></path>
+          <path class="arrow" d="M 492 174 L 492 226"></path>
+          <path class="arrow" d="M 628 314 L 694 291"></path>
+          <path class="arrow" d="M 980 291 L 1068 334"></path>
+          <path class="arrow" d="M 1208 422 L 1208 472"></path>
+          <path class="arrow" d="M 1208 184 L 1208 246"></path>
+          <path class="arrow" d="M 837 356 L 837 432"></path>
+          <path class="arrow" d="M 837 586 L 837 658"></path>
+          <path class="arrow" d="M 980 744 L 1048 744"></path>
+
+          <path class="arrow dashed" d="M 364 314 L 164 314 L 164 458"></path>
+          <text class="flow-label" x="244" y="296">No</text>
+          <text class="flow-label" x="646" y="298">Yes</text>
+          <text class="flow-label" x="1360" y="334">No</text>
+          <text class="flow-label" x="1218" y="218">Yes</text>
+
+          <path class="arrow dashed" d="M 294 520 L 694 520"></path>
+          <text class="flow-label" x="448" y="504">Conservative fallback verdict</text>
+
+          <path class="arrow dashed" d="M 1366 540 L 1366 744 L 1366 744"></path>
+          <text class="flow-label" x="1290" y="636">Weak evidence stays visible to reviewer</text>
+        </svg>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Confidence and Evaluation Intent</h2>
+            <p>
+              The system is intentionally conservative. It separates data quality from policy grounding so weak upstream evidence cannot masquerade as a confident final decision.
+            </p>
+          </div>
+        </div>
+        <div class="footer-grid">
+          <article class="note">
+            <h3>Three-part confidence</h3>
+            <p>
+              Extraction confidence, retrieval confidence, and decision confidence are stored separately. The final
+              routing can be softened when upstream evidence is weak.
+            </p>
+          </article>
+          <article class="note">
+            <h3>Groundedness over bravado</h3>
+            <p>
+              If policy evidence is weak or missing, the system should prefer human review or refusal rather than an
+              unearned compliant verdict or unsupported answer.
+            </p>
+          </article>
+          <article class="note">
+            <h3>Eval harness alignment</h3>
+            <p>
+              The evaluation harness measures verdict accuracy, retrieval quality, citation correctness, answer
+              relevance, and refusal behavior against both seeded cases and drop-in held-out sets.
+            </p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

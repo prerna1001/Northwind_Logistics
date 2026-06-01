@@ -1,0 +1,65 @@
+{
+  "suite_name": "northwind-eval-sample",
+  "cases": [
+    {
+      "id": "clean-denver-lodging",
+      "type": "receipt_review",
+      "sample_case_id": "01_clean_denver",
+      "receipt_filename": "02_marriott_denver.pdf",
+      "expected": {
+        "verdict": "compliant",
+        "category": "lodging",
+        "human_review_needed": false,
+        "policy_title_contains_any": [
+          "Lodging Policy",
+          "Receipt Requirements Policy"
+        ]
+      }
+    },
+    {
+      "id": "dinner-over-cap",
+      "type": "receipt_review",
+      "sample_case_id": "03_dinner_over_cap",
+      "receipt_filename": "04_dinner_alinea.pdf",
+      "expected": {
+        "verdict": "flagged",
+        "category": "meal",
+        "policy_title_contains_any": [
+          "Meals and Entertainment Policy"
+        ],
+        "quote_terms_any": [
+          "dinner",
+          "$75"
+        ]
+      }
+    },
+    {
+      "id": "solo-alcohol-policy-chat",
+      "type": "policy_chat",
+      "question": "Can alcohol be reimbursed on solo travel?",
+      "expected": {
+        "grounded": true,
+        "policy_title_contains_any": [
+          "Alcohol Policy"
+        ],
+        "quote_terms_any": [
+          "alcohol",
+          "solo travel"
+        ],
+        "answer_terms_any": [
+          "alcohol",
+          "solo travel"
+        ]
+      }
+    },
+    {
+      "id": "out-of-scope-policy-chat",
+      "type": "policy_chat",
+      "question": "What is the best airline seat for sleeping?",
+      "expected": {
+        "grounded": false,
+        "refusal_expected": true
+      }
+    }
+  ]
+}

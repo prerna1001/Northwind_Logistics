@@ -109,6 +109,10 @@ Use `History` to filter past submissions by:
 
 ## Architecture
 
+Open the architecture flow sketch here:
+
+- [architecture-diagram.html](architecture-diagram.html)
+
 ### Storage
 
 - PostgreSQL stores:
@@ -159,107 +163,39 @@ Use `History` to filter past submissions by:
 
 ### Retrieval approach
 
-Chosen:
+I chose routed retrieval over policy families, then combined vector similarity, keyword overlap, and topic-tag signals inside that smaller search space. The main reason was that the policy library intentionally contains realistic noise, including unrelated corporate documents, so a blind semantic search over everything would look flexible but would actually make citation faithfulness much worse. Routing first by receipt category and supporting signals gives the system a narrower and more defensible search area.
 
-- routed retrieval over policy families
-- vector similarity
-- keyword overlap
-- topic-tag signals
-
-Why:
-
-- the policy library contains realistic noise
-- category-first routing is much safer than searching every policy equally
-
-Tradeoff:
-
-- better precision
-- more orchestration and routing logic
+The tradeoff is orchestration complexity. This design is less elegant than “embed everything and ask top-k,” because it needs categorization, family scoring, and stricter retrieval rules before generation. I accepted that cost because this case study rewards groundedness and honest uncertainty more than retrieval simplicity. In this domain, a slightly more complex retrieval layer is preferable to a simpler one that regularly cites the wrong policy family.
 
 ### Chunking strategy
 
-Chosen:
+I split bundled PDFs into individual policy documents first and then chunked by section and subsection structure instead of using naive token windows. That choice was driven by the need for faithful citations. Finance reviewers need to see the actual clause the system relied on, and that is much easier when chunks line up with real policy boundaries such as `2.1`, `4.3`, or a named subsection.
 
-- split bundled PDFs into individual policies first
-- chunk by section / subsection structure
-
-Why:
-
-- policy clauses are easier to retrieve and cite faithfully
-- updates can be versioned cleanly
-
-Tradeoff:
-
-- more ingestion complexity than naive token chunking
+The tradeoff is a more involved ingestion pipeline. Bundle splitting, section detection, and metadata preservation are more fragile than generic token chunking, especially when PDFs are messy. I still chose the structure-aware route because policy updates, versioning, and citation quality matter more here than ingestion simplicity. A cleanly versioned section chunk is much easier to replace, cite, and debug than an arbitrary text window.
 
 ### Model tier selection
 
-Chosen:
+I did not use one model for the whole system. Extraction uses PaddleOCR or deterministic parsing, retrieval uses embeddings plus heuristics, and the final verdict comes from a Llama-compatible reasoning layer. The reason for this split is cost and controllability: most receipts do not need expensive reasoning at every stage, and the system is easier to audit when each stage has a narrow job.
 
-- extraction: PaddleOCR / deterministic parsing
-- retrieval: embeddings + heuristics
-- adjudication: Llama-compatible model
-
-Why:
-
-- keep expensive reasoning focused on the final decision layer
-
-Tradeoff:
-
-- more pipeline stages
-- better controllability and lower cost
+The tradeoff is that the pipeline has more moving parts and more handoff points. A one-model design would be easier to explain at a high level, but it would also blur extraction errors, retrieval mistakes, and reasoning mistakes together. I preferred the layered design because it makes failure modes easier to inspect and keeps the stronger reasoning step focused where it is actually valuable: the adjudication layer.
 
 ### When to use a vision model
 
-Chosen:
+I treated PaddleOCR as the default document-vision layer for scanned or image-based receipts, while allowing text-like files to bypass OCR entirely. That choice keeps the system practical and affordable for a case-study build while still supporting the mixed receipt formats described in the brief.
 
-- PaddleOCR is the default document-vision layer
-- text-like files bypass OCR
-- weak extraction routes toward review instead of pretending confidence
-
-Tradeoff:
-
-- free and practical
-- less robust than premium managed extraction
+The tradeoff is robustness. A managed commercial extraction stack could likely be stronger on messy receipt images, but it would increase external dependency cost and make the project feel more like a vendor integration than a designed system. I chose the lighter vision path because the brief values design reasoning, failure handling, and end-to-end architecture, not just buying the strongest extractor available. When OCR is weak, the system is expected to surface uncertainty rather than mask it.
 
 ### Confidence handling
 
-Chosen:
+I separated confidence into extraction confidence, retrieval confidence, and decision confidence instead of collapsing everything into one score. That design reflects how this system can fail: a receipt may be read clearly but matched to weak policy evidence, or policy retrieval may be strong while extraction is incomplete. A single score would hide those differences and make the final verdict look more certain than it really is.
 
-- three-part confidence:
-  - extraction
-  - retrieval
-  - decision
-- conservative routing when upstream evidence is weak
-
-Why:
-
-- avoids a single misleading confidence number
-- weak evidence should reduce automation aggressiveness
-
-Tradeoff:
-
-- more nuanced
-- requires explicit calibration work
+The tradeoff is that confidence becomes harder to calibrate and explain internally. It requires explicit scoring logic and, ideally, later tuning against reviewer outcomes. I still chose the multi-part approach because this brief explicitly rewards honest “I don’t know” behavior. In a reviewer-assist system, nuanced confidence is worth the added calibration effort because it is what allows the system to route weak cases to human review instead of bluffing.
 
 ### Flag vs reject vs human review
 
-Chosen:
+I used four states: `compliant`, `flagged`, `rejected`, and `needs_human_review`. I chose that structure because finance review is not a clean pass/fail workflow. Some expenses are clearly acceptable, some clearly violate policy, some have a likely issue but still need reviewer judgment, and some simply do not have enough trustworthy evidence for the system to act confidently.
 
-- `compliant`
-- `flagged`
-- `rejected`
-- `needs_human_review`
-
-Why:
-
-- finance review is not cleanly binary
-- explicit uncertainty is better than false certainty
-
-Tradeoff:
-
-- more workflow complexity
-- much safer reviewer experience
+The tradeoff is added workflow complexity in both the backend and the UI. A binary approve/reject flow would be simpler to build and easier to summarize, but it would push ambiguity into the wrong places and encourage overconfident automation. I preferred the richer state model because it matches the actual reviewer task more closely and lets the system distinguish between “likely wrong” and “not safe to decide automatically,” which is a critical difference for trust.
 
 ## Cost per submission
 
@@ -327,6 +263,15 @@ Key operational metrics:
 - fallback rate
 - override rate
 
+Why these metrics:
+
+- `verdict accuracy` checks whether the reviewer-facing outcome is directionally right.
+- `retrieval quality` checks whether the system pulled the right policy family and supporting clauses.
+- `citation correctness` checks faithfulness: quoted policy text must actually support the claim.
+- `answer relevance` checks that policy or case chat stays on the user’s question instead of drifting.
+- `refusal rate` checks whether the system declines unsupported questions instead of fabricating.
+- `confidence usefulness` is indirectly tested through the separation of strong, weak, and fallback outcomes.
+
 ## Evaluation harness
 
 The harness lives at:
@@ -335,12 +280,12 @@ The harness lives at:
 
 Example input spec:
 
-- [docs/eval-spec.example.json](docs/eval-spec.example.json)
+- [eval-spec.sample.json](eval-spec.sample.json)
 
 Run it from the project root:
 
 ```bash
-python3 scripts/eval_harness.py docs/eval-spec.example.json --json-out data/eval-report.json
+python3 scripts/eval_harness.py eval-spec.sample.json --json-out data/eval-report.json
 ```
 
 What it supports:
@@ -375,9 +320,13 @@ The harness runs the real backend analysis path and reports:
 - answer relevance
 - refusal rate
 
+This means a grader can drop in a held-out JSON spec after submission and get back both:
+
+- high-level summary metrics
+- per-case detail showing what matched, what failed, and what the system actually produced
+
 ## What I would do next
 
-- add a formal evaluation harness that accepts expected-outcome JSON and reports the metrics above
 - add reranking on top of initial retrieval
 - improve policy-family routing calibration
 - strengthen receipt extraction for noisy image receipts
