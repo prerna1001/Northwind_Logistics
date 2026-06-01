@@ -147,9 +147,7 @@ Use `History` to filter past submissions by:
 
 ## Architecture
 
-The architecture flow is shown directly below for GitHub readability, and the standalone visual version is also included here:
-
-- [architecture-diagram.html](architecture-diagram.html)
+The architecture flow is shown directly below for GitHub readability.
 
 ```mermaid
 flowchart TD
