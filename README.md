@@ -20,6 +20,7 @@ Northwind Expense Review Workbench is an AI-assisted finance pre-review tool for
   - quoted policy evidence
   - confidence breakdown
 - Allows reviewer overrides with comments and stores the original system verdict separately.
+- Lets reviewers move manually created cases into a trash view and restore them later without losing the case record.
 - Preserves searchable history by employee, date, and status.
 - Supports two assistant modes:
   - policy-grounded chat
@@ -101,6 +102,13 @@ This repository is Vercel-ready for the frontend build. The frontend reads `VITE
    - create a new employee and submission
 3. Upload receipts
 4. Run `Do Analysis`
+
+### Trash and restore
+
+1. Open a manual case
+2. Click `Move to trash`
+3. Open the `Trash` tab to review removed cases
+4. Click `Restore case` to move a case back into the active manual list
 
 ### History
 
