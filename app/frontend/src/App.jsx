@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
 const emptyEmployee = {
   employee_id: "",
   name: "",
@@ -20,7 +22,8 @@ const emptyHistoryFilters = {
 };
 
 async function fetchJson(url, options) {
-  const response = await fetch(url, options);
+  const target = url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+  const response = await fetch(target, options);
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     const detail = payload.detail || "Request failed";

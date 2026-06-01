@@ -55,6 +55,10 @@ Notes:
 - Cloudflare Workers AI is the intended hosted Llama endpoint.
 - If `LLAMA_API_TOKEN` is omitted, the backend falls back to heuristic adjudication.
 
+Frontend-only deployment note:
+
+- when deploying the UI separately on Vercel, set `VITE_API_BASE_URL` to the public backend base URL, for example `https://your-backend.example.com`
+
 ### 2. Start the stack
 
 From the project root:
@@ -75,6 +79,10 @@ docker compose up --build
 - Frontend: [http://localhost:5173](http://localhost:5173)
 - Backend health: [http://localhost:8000/api/health](http://localhost:8000/api/health)
 - Bootstrap status: [http://localhost:8000/api/bootstrap-status](http://localhost:8000/api/bootstrap-status)
+
+## Vercel deployment note
+
+This repository is Vercel-ready for the frontend build. The frontend reads `VITE_API_BASE_URL`, so a Vercel deployment can point at a separately hosted backend without relying on same-origin `/api` routing.
 
 ## Browser flows
 
