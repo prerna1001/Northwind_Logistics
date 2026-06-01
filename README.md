@@ -2,6 +2,10 @@
 
 Northwind Expense Review Workbench is an AI-assisted finance pre-review tool for employee expense receipts. It ingests seeded sample cases and new reviewer-created submissions, extracts receipt details, retrieves relevant policy evidence, produces a pre-review verdict, and preserves reviewer overrides and submission history.
 
+## Live deployed app
+
+- Frontend: [https://northwind-logistics-frontend.onrender.com/](https://northwind-logistics-frontend.onrender.com/)
+
 ## What the app does
 
 - Seeds the five provided employees and sample submissions on startup.
@@ -56,9 +60,9 @@ Notes:
 - Cloudflare Workers AI is the intended hosted Llama endpoint.
 - If `LLAMA_API_TOKEN` is omitted, the backend falls back to heuristic adjudication.
 
-Frontend-only deployment note:
+Frontend deployment note:
 
-- when deploying the UI separately on Vercel, set `VITE_API_BASE_URL` to the public backend base URL, for example `https://your-backend.example.com`
+- the frontend reads `VITE_API_BASE_URL` so it can point at a separately hosted backend without relying on same-origin `/api` routing
 
 ### 2. Start the stack
 
@@ -81,9 +85,27 @@ docker compose up --build
 - Backend health: [http://localhost:8000/api/health](http://localhost:8000/api/health)
 - Bootstrap status: [http://localhost:8000/api/bootstrap-status](http://localhost:8000/api/bootstrap-status)
 
-## Vercel deployment note
+## Deployment
 
-This repository is Vercel-ready for the frontend build. The frontend reads `VITE_API_BASE_URL`, so a Vercel deployment can point at a separately hosted backend without relying on same-origin `/api` routing.
+This project was deployed as a split browser app:
+
+- the React frontend is deployed on **Render Static Site**
+- the FastAPI backend is deployed on **Render Web Service**
+- PostgreSQL is hosted on **Render Postgres**
+- raw policy and receipt artifacts are stored in **Cloudflare R2**
+- hosted Llama-compatible inference is provided through **Cloudflare Workers AI**
+
+### How I deployed it
+
+1. Pushed the repository to GitHub as the source of truth.
+2. Created a Render Postgres database and used its internal connection string for `POSTGRES_URL`.
+3. Created a Render Web Service for the backend and supplied the database, R2, and Workers AI environment variables.
+4. Created a Render Static Site for the frontend and set `VITE_API_BASE_URL` to the public backend base URL.
+5. Triggered Render deploys from the `main` branch so the live app always reflects the latest pushed version.
+
+### Why this deployment shape
+
+I chose Render for hosting because this project is not just a static UI. The backend needs persistent application state, PostgreSQL with `pgvector`, file-capable receipt handling, and a straightforward Python runtime. Hosting the frontend and backend on Render keeps the deployment story simpler than splitting the stack across a static host plus a more constrained serverless backend runtime.
 
 ## Browser flows
 
@@ -125,9 +147,79 @@ Use `History` to filter past submissions by:
 
 ## Architecture
 
-Open the architecture flow sketch here:
+The architecture flow is shown directly below for GitHub readability, and the standalone visual version is also included here:
 
 - [architecture-diagram.html](architecture-diagram.html)
+
+```mermaid
+flowchart TD
+    A["Reviewer opens browser app"] --> B{"Choose workflow"}
+    B --> C["Sample Cases"]
+    B --> D["New Submission"]
+    B --> E["History"]
+    B --> F["Assistant"]
+
+    C --> G["Open seeded submission"]
+    D --> H["Pick existing employee or create new employee"]
+    H --> I["Create manual submission"]
+    I --> J["Upload receipts"]
+    G --> K["Run analysis"]
+    J --> K
+    E --> L["Filter by employee, date, status"]
+    F --> M{"Chat scope"}
+    M --> N["Policy library chat"]
+    M --> O["Current case chat"]
+
+    K --> P["Receipt extraction"]
+    P --> P1{"File type"}
+    P1 --> P2["Direct text parsing"]
+    P1 --> P3["PaddleOCR when needed"]
+    P2 --> Q["Normalized receipt facts"]
+    P3 --> Q
+
+    Q --> R["Category + routing signals"]
+    R --> S["Deterministic rule checks"]
+    R --> T["Policy family routing"]
+    T --> U["Hybrid retrieval over policy chunks"]
+    S --> V["Confidence signals"]
+    U --> V
+    U --> W["Policy evidence package"]
+
+    W --> X["Adjudication with Llama-compatible model"]
+    V --> Y{"Evidence strong enough?"}
+    X --> Y
+    Y -->|Yes| Z["Verdict: compliant / flagged / rejected"]
+    Y -->|No| AA["Verdict: needs_human_review"]
+
+    Z --> AB["Reviewer sees reasoning, citations, confidence"]
+    AA --> AB
+    AB --> AC{"Reviewer action"}
+    AC -->|Override| AD["Store override + effective verdict"]
+    AC -->|Move to trash| AE["Manual case moved to Trash"]
+    AE --> AF["Restore later if needed"]
+    AC -->|Keep as is| AG["Persist history"]
+    AD --> AG
+    AF --> AG
+
+    N --> AH["Retrieve policy-only chunks"]
+    O --> AI["Use selected submission + policy evidence"]
+    AH --> AJ{"Enough support?"}
+    AI --> AJ
+    AJ -->|Yes| AK["Grounded answer with citations"]
+    AJ -->|No| AL["Decline unsupported question"]
+
+    subgraph Storage
+      S1["Postgres + pgvector"]
+      S2["Cloudflare R2 raw artifacts"]
+    end
+
+    Q --> S1
+    S --> S1
+    U --> S1
+    X --> S1
+    AD --> S1
+    J --> S2
+```
 
 ### Storage
 
