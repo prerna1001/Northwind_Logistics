@@ -92,6 +92,7 @@ def serialize_submission(submission: Submission) -> dict:
         "trip_purpose": submission.trip_purpose,
         "trip_dates": submission.trip_dates,
         "status": submission.status,
+        "deleted_at": submission.deleted_at.isoformat() if submission.deleted_at else None,
         "last_analysis_at": submission.last_analysis_at.isoformat() if submission.last_analysis_at else None,
         "created_at": submission.created_at.isoformat(),
         "employee": {
@@ -218,6 +219,7 @@ def list_submissions(
     status: str | None = Query(default=None),
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
+    include_deleted: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
     stmt = (
@@ -230,6 +232,10 @@ def list_submissions(
         )
         .order_by(Submission.created_at.desc())
     )
+    if include_deleted:
+        stmt = stmt.where(Submission.deleted_at.is_not(None))
+    else:
+        stmt = stmt.where(Submission.deleted_at.is_(None))
     if source:
         stmt = stmt.where(Submission.source == source)
     if employee:
@@ -246,6 +252,51 @@ def list_submissions(
 
 @app.get("/api/submissions/{submission_id}")
 def get_submission(submission_id: int, db: Session = Depends(get_db)):
+    return serialize_submission(get_submission_or_404(submission_id, db))
+
+
+@app.delete("/api/submissions/{submission_id}")
+def delete_submission(submission_id: int, db: Session = Depends(get_db)):
+    submission = db.get(Submission, submission_id)
+    if submission is None:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if submission.source != "manual":
+        raise HTTPException(status_code=400, detail="Only manually created submissions can be deleted.")
+    if submission.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="Submission is already in trash.")
+    employee_id = submission.employee_id
+    submission.deleted_at = datetime.utcnow()
+    submission.status = "trashed"
+    db.commit()
+
+    remaining_manual_submissions = db.scalar(
+        select(func.count()).select_from(Submission).where(
+            Submission.employee_id == employee_id,
+            Submission.source == "manual",
+            Submission.deleted_at.is_(None),
+        )
+    ) or 0
+    return {
+        "deleted": True,
+        "submission_id": submission_id,
+        "employee_id": employee_id,
+        "remaining_manual_submissions": remaining_manual_submissions,
+    }
+
+
+@app.post("/api/submissions/{submission_id}/restore")
+def restore_submission(submission_id: int, db: Session = Depends(get_db)):
+    submission = db.get(Submission, submission_id)
+    if submission is None:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if submission.source != "manual":
+        raise HTTPException(status_code=400, detail="Only manually created submissions can be restored.")
+    if submission.deleted_at is None:
+        raise HTTPException(status_code=400, detail="Submission is not in trash.")
+
+    submission.deleted_at = None
+    submission.status = "draft" if not submission.receipts else "ready_for_analysis"
+    db.commit()
     return serialize_submission(get_submission_or_404(submission_id, db))
 
 

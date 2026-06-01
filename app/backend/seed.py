@@ -16,6 +16,7 @@ from .analysis import embed_text
 from .config import get_settings
 from .database import Base, engine, ensure_vector_extension
 from .extraction import extract_pdf_text
+from .migrations import ensure_compatibility_columns
 from .models import (
     DeterministicFinding,
     Employee,
@@ -143,6 +144,7 @@ def bootstrap_database() -> None:
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
     ensure_vector_extension()
     Base.metadata.create_all(bind=engine)
+    ensure_compatibility_columns(engine)
 
 
 def _extract_metadata(block: str) -> dict[str, str | None]:

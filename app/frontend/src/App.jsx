@@ -222,7 +222,17 @@ function ReceiptCard({ receipt, onOverride }) {
   );
 }
 
-function SubmissionDetail({ submission, onAnalyze, onUpload, onOverride, analyzing }) {
+function SubmissionDetail({
+  submission,
+  onAnalyze,
+  onUpload,
+  onOverride,
+  onTrash,
+  onRestore,
+  analyzing,
+  deleting,
+  restoring,
+}) {
   if (!submission) {
     return (
       <section className="panel detail-panel">
@@ -232,7 +242,9 @@ function SubmissionDetail({ submission, onAnalyze, onUpload, onOverride, analyzi
     );
   }
 
-  const canUpload = submission.source === "manual";
+  const isTrashed = Boolean(submission.deleted_at);
+  const canUpload = submission.source === "manual" && !isTrashed;
+  const canManageTrash = submission.source === "manual";
 
   return (
     <section className="panel detail-panel">
@@ -246,9 +258,34 @@ function SubmissionDetail({ submission, onAnalyze, onUpload, onOverride, analyzi
         </div>
         <div className="detail-actions">
           <span className={`status-badge verdict-${submission.status}`}>{submission.status}</span>
-          <button type="button" className="primary-button" onClick={() => onAnalyze(submission.id)} disabled={analyzing}>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => onAnalyze(submission.id)}
+            disabled={analyzing || isTrashed}
+          >
             {analyzing ? "Running analysis…" : "Do Analysis"}
           </button>
+          {canManageTrash && !isTrashed ? (
+            <button
+              type="button"
+              className="danger-button"
+              onClick={() => onTrash(submission)}
+              disabled={deleting}
+            >
+              {deleting ? "Moving…" : "Move to trash"}
+            </button>
+          ) : null}
+          {canManageTrash && isTrashed ? (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => onRestore(submission)}
+              disabled={restoring}
+            >
+              {restoring ? "Restoring…" : "Restore case"}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -267,6 +304,11 @@ function SubmissionDetail({ submission, onAnalyze, onUpload, onOverride, analyzi
           <span>Upload receipts for this new employee case</span>
           <small>PDF, image, or text receipts are accepted.</small>
         </label>
+      ) : isTrashed ? (
+        <div className="sample-note">
+          <strong>Case is in trash</strong>
+          <span>Restore it to continue uploading receipts, running analysis, or making review changes.</span>
+        </div>
       ) : (
         <div className="sample-note">
           <strong>Provided sample case</strong>
@@ -359,20 +401,25 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [analyzingId, setAnalyzingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [restoringId, setRestoringId] = useState(null);
   const [newEmployee, setNewEmployee] = useState(emptyEmployee);
   const [existingEmployeeId, setExistingEmployeeId] = useState("");
   const [historyFilters, setHistoryFilters] = useState(emptyHistoryFilters);
   const [historyRows, setHistoryRows] = useState([]);
+  const [trashedRows, setTrashedRows] = useState([]);
 
   async function refreshSubmissions(params = "") {
-    const [status, rows, employeeRows] = await Promise.all([
+    const [status, rows, employeeRows, deletedRows] = await Promise.all([
       fetchJson("/api/bootstrap-status"),
       fetchJson(`/api/submissions${params}`),
       fetchJson("/api/employees"),
+      fetchJson("/api/submissions?include_deleted=true"),
     ]);
     setBootstrap(status);
     setSubmissions(rows);
     setEmployees(employeeRows);
+    setTrashedRows(deletedRows);
     if (!existingEmployeeId && employeeRows.length) {
       setExistingEmployeeId(employeeRows[0].employee_id);
     }
@@ -380,7 +427,8 @@ export default function App() {
       const defaultSample = rows.find((row) => row.source === "sample");
       setSelectedSubmission(defaultSample || rows[0]);
     } else if (selectedSubmission) {
-      const refreshed = rows.find((row) => row.id === selectedSubmission.id);
+      const targetRows = selectedSubmission.deleted_at ? deletedRows : rows;
+      const refreshed = targetRows.find((row) => row.id === selectedSubmission.id);
       if (refreshed) {
         setSelectedSubmission(refreshed);
       } else {
@@ -530,6 +578,50 @@ export default function App() {
     }
   }
 
+  async function handleTrashSubmission(submission) {
+    if (!submission || submission.source !== "manual") return;
+    const confirmed = window.confirm(`Move the case for ${submission.employee.name} to trash? You can restore it later.`);
+    if (!confirmed) return;
+
+    setDeletingId(submission.id);
+    try {
+      await fetchJson(`/api/submissions/${submission.id}`, { method: "DELETE" });
+      const rows = await refreshSubmissions();
+      const remainingManual = rows.filter((row) => row.source === "manual");
+      const nextSelection =
+        remainingManual[0] ||
+        rows.find((row) => row.source === "sample") ||
+        rows[0] ||
+        null;
+      setSelectedSubmission(nextSelection);
+      if (!remainingManual.length) {
+        setTab("manual");
+      }
+      setMessage(`Moved the case for ${submission.employee.name} to trash.`);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleRestoreSubmission(submission) {
+    if (!submission || submission.source !== "manual") return;
+
+    setRestoringId(submission.id);
+    try {
+      const restored = await fetchJson(`/api/submissions/${submission.id}/restore`, { method: "POST" });
+      await refreshSubmissions();
+      setSelectedSubmission(restored);
+      setTab("manual");
+      setMessage(`Restored the case for ${submission.employee.name}.`);
+    } catch (error) {
+      setMessage(error.message);
+    } finally {
+      setRestoringId(null);
+    }
+  }
+
   async function runHistorySearch(event) {
     event.preventDefault();
     const params = new URLSearchParams();
@@ -556,6 +648,7 @@ export default function App() {
 
   const sampleSubmissions = submissions.filter((submission) => submission.source === "sample");
   const manualSubmissions = submissions.filter((submission) => submission.source === "manual");
+  const trashedSubmissions = trashedRows.filter((submission) => submission.source === "manual");
 
   if (loading) {
     return <main className="shell"><p>Loading the expense review workspace…</p></main>;
@@ -581,6 +674,7 @@ export default function App() {
           ["sample", "Sample Cases"],
           ["manual", "New Submission"],
           ["history", "History"],
+          ["trash", "Trash"],
           ["chat", "Assistant"],
         ].map(([value, label]) => (
           <button
@@ -615,7 +709,11 @@ export default function App() {
             onAnalyze={handleAnalyze}
             onUpload={handleUpload}
             onOverride={handleOverride}
+            onTrash={handleTrashSubmission}
+            onRestore={handleRestoreSubmission}
             analyzing={analyzingId === selectedSubmission?.id}
+            deleting={deletingId === selectedSubmission?.id}
+            restoring={restoringId === selectedSubmission?.id}
           />
         </section>
       ) : null}
@@ -688,7 +786,11 @@ export default function App() {
             onAnalyze={handleAnalyze}
             onUpload={handleUpload}
             onOverride={handleOverride}
+            onTrash={handleTrashSubmission}
+            onRestore={handleRestoreSubmission}
             analyzing={analyzingId === selectedSubmission?.id}
+            deleting={deletingId === selectedSubmission?.id}
+            restoring={restoringId === selectedSubmission?.id}
           />
         </section>
       ) : null}
@@ -730,7 +832,46 @@ export default function App() {
             onAnalyze={handleAnalyze}
             onUpload={handleUpload}
             onOverride={handleOverride}
+            onTrash={handleTrashSubmission}
+            onRestore={handleRestoreSubmission}
             analyzing={analyzingId === selectedSubmission?.id}
+            deleting={deletingId === selectedSubmission?.id}
+            restoring={restoringId === selectedSubmission?.id}
+          />
+        </section>
+      ) : null}
+
+      {tab === "trash" ? (
+        <section className="grid-two">
+          <div className="panel">
+            <h2>Trash</h2>
+            <p>Cases moved out of the working list stay here until you restore them.</p>
+            <div className="submission-list">
+              {trashedSubmissions.length ? (
+                trashedSubmissions.map((submission) => (
+                  <SubmissionCard
+                    key={submission.id}
+                    submission={submission}
+                    selected={selectedSubmission?.id === submission.id}
+                    onSelect={setSelectedSubmission}
+                  />
+                ))
+              ) : (
+                <p className="muted-copy">Trash is empty.</p>
+              )}
+            </div>
+          </div>
+
+          <SubmissionDetail
+            submission={selectedSubmission?.deleted_at ? selectedSubmission : trashedSubmissions[0]}
+            onAnalyze={handleAnalyze}
+            onUpload={handleUpload}
+            onOverride={handleOverride}
+            onTrash={handleTrashSubmission}
+            onRestore={handleRestoreSubmission}
+            analyzing={analyzingId === selectedSubmission?.id}
+            deleting={deletingId === selectedSubmission?.id}
+            restoring={restoringId === selectedSubmission?.id}
           />
         </section>
       ) : null}

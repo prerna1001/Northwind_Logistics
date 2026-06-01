@@ -43,6 +43,7 @@ class Submission(Base):
     trip_purpose: Mapped[str | None] = mapped_column(Text, nullable=True)
     trip_dates: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(64), default="draft")
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_analysis_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

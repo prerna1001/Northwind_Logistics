@@ -18,6 +18,8 @@ def ensure_compatibility_columns(engine: Engine) -> None:
             statements.append("ALTER TABLE submissions ADD COLUMN source VARCHAR(32) DEFAULT 'manual'")
         if "sample_case_id" not in table_columns["submissions"]:
             statements.append("ALTER TABLE submissions ADD COLUMN sample_case_id VARCHAR(128)")
+        if "deleted_at" not in table_columns["submissions"]:
+            statements.append("ALTER TABLE submissions ADD COLUMN deleted_at TIMESTAMP")
 
     if "receipts" in table_columns:
         if "storage_backend" not in table_columns["receipts"]:

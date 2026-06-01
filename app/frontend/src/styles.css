@@ -129,7 +129,8 @@ select {
 
 .tab-button,
 .primary-button,
-.secondary-button {
+.secondary-button,
+.danger-button {
   border: 0;
   border-radius: 999px;
   padding: 12px 18px;
@@ -151,6 +152,11 @@ select {
 .secondary-button {
   background: var(--sand);
   color: var(--gold);
+}
+
+.danger-button {
+  background: var(--rose);
+  color: white;
 }
 
 .grid-two {
@@ -387,6 +393,11 @@ select {
 .verdict-rejected {
   color: var(--rose);
   background: var(--rose-soft);
+}
+
+.verdict-trashed {
+  color: var(--slate);
+  background: rgba(70, 83, 90, 0.12);
 }
 
 .verdict-needs_human_review {
